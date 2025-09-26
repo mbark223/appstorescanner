@@ -3,12 +3,13 @@
 import { useEffect, useState, useRef } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, Star, ExternalLink, Loader2 } from "lucide-react"
+import { Search, Star, ExternalLink, Loader2, Zap } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { App } from "@/types/app"
 
 interface Suggestion {
@@ -26,6 +27,7 @@ export default function SearchPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
+  const [useLiveData, setUseLiveData] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
 
@@ -75,7 +77,8 @@ export default function SearchPage() {
   const searchApps = async (searchTerm: string) => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/apps/search?q=${encodeURIComponent(searchTerm)}`)
+      const endpoint = useLiveData ? '/api/apps/search-live' : '/api/apps/search'
+      const response = await fetch(`${endpoint}?q=${encodeURIComponent(searchTerm)}`)
       const data = await response.json()
       setApps(data.apps || [])
     } catch (error) {
@@ -213,6 +216,22 @@ export default function SearchPage() {
                 </AnimatePresence>
               </div>
             </form>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={useLiveData ? "default" : "outline"}
+                size="sm"
+                onClick={() => setUseLiveData(!useLiveData)}
+                className="flex items-center gap-2"
+              >
+                <Zap className={`h-4 w-4 ${useLiveData ? 'animate-pulse' : ''}`} />
+                {useLiveData ? 'Live Data' : 'Cached Data'}
+              </Button>
+              {useLiveData && (
+                <Badge variant="secondary" className="text-xs">
+                  Using AppTweak API
+                </Badge>
+              )}
+            </div>
           </div>
         </div>
       </header>
