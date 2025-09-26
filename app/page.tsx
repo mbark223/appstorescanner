@@ -79,7 +79,7 @@ export default function LandingPage() {
             </div>
           </form>
           <p className="text-sm text-muted-foreground text-center mt-3">
-            Try: "Instagram", "Spotify", or paste an app store URL
+            Try: &quot;Instagram&quot;, &quot;Spotify&quot;, or paste an app store URL
           </p>
         </motion.div>
 
