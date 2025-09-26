@@ -212,32 +212,45 @@ class AppTweakClient {
     type: 'free' | 'paid' | 'grossing' = 'free'
   ): Promise<App[]> {
     try {
-      // For now, fallback to searching for popular sports apps
-      // AppTweak rankings endpoint might require different parameters
-      const sportsApps = [
-        'FanDuel', 'DraftKings', 'ESPN', 'theScore', 'Caesars Sportsbook',
-        'BetMGM', 'Underdog Fantasy', 'Betr', 'Sleeper', 'Yahoo Fantasy',
-        'CBS Sports', 'The Athletic', 'Bleacher Report', 'NBA', 'NFL',
-        'MLB', 'NHL', 'UFC', 'PGA TOUR', 'NASCAR'
-      ]
+      // AppTweak API endpoint for top charts
+      const endpoint = platform === 'ios'
+        ? `/ios/categories/${category}/top.json`
+        : `/android/categories/${category}/top.json`
       
-      // Search for each app
-      const allApps: App[] = []
-      for (const appName of sportsApps) {
-        try {
-          const results = await this.searchApps(appName, platform, country, 5)
-          if (results.length > 0) {
-            allApps.push(results[0]) // Take the first result
-          }
-        } catch (e) {
-          console.log(`Failed to search for ${appName}`)
-        }
+      // Map our type names to AppTweak's list names
+      const listTypeMap = {
+        'free': 'free',
+        'paid': 'paid',
+        'grossing': 'revenue'
       }
       
-      return allApps
+      const data = await this.request(endpoint, {
+        country: country,
+        language: 'en',
+        device: platform === 'ios' ? 'iphone' : 'phone',
+        list: listTypeMap[type] || 'free',
+        limit: 50
+      })
+
+      // Try different response structures
+      const apps = data.content || data.apps || data.applications || data.results || []
+      
+      return apps.map((app: any) => this.convertToApp(app, platform))
     } catch (error) {
       console.error('AppTweak top apps error:', error)
-      return []
+      
+      // Fallback to fetching top apps by search
+      console.log('Trying alternative approach...')
+      try {
+        const searchTerm = category === '6004' ? 'sports' : 
+                          category === '6014' ? 'games' : 
+                          category === '6000' ? 'business' : 'app'
+        
+        return await this.searchApps(searchTerm, platform, country, 50)
+      } catch (searchError) {
+        console.error('Search fallback also failed:', searchError)
+        return []
+      }
     }
   }
 

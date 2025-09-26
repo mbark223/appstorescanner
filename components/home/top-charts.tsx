@@ -63,6 +63,7 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
     paid: []
   })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [category, setCategory] = useState(initialCategory)
   const [country, setCountry] = useState('us')
   const [platform, setPlatform] = useState<'ios' | 'android'>('ios')
@@ -74,6 +75,7 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
 
   const fetchTopApps = async () => {
     setLoading(true)
+    setError(null)
     try {
       const categoryId = APP_CATEGORIES[category as keyof typeof APP_CATEGORIES]
       
@@ -90,13 +92,23 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
         paidRes.json()
       ])
       
+      // Check for errors
+      if (!freeRes.ok || !grossingRes.ok || !paidRes.ok) {
+        console.error('API responses:', { freeData, grossingData, paidData })
+        setError('Failed to fetch app rankings. Please try again.')
+      }
+      
       setApps({
         free: freeData.apps || [],
         grossing: grossingData.apps || [],
         paid: paidData.apps || []
       })
+      
+      // Log source for debugging
+      console.log('Data source:', freeData.source || 'unknown')
     } catch (error) {
       console.error('Failed to fetch top apps:', error)
+      setError('Network error. Please check your connection.')
     } finally {
       setLoading(false)
     }
@@ -127,6 +139,9 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
       return (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No apps found in this category.</p>
+          {error && (
+            <p className="text-sm text-red-500 mt-2">{error}</p>
+          )}
         </div>
       )
     }

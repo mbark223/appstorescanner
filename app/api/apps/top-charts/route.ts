@@ -11,15 +11,46 @@ export async function GET(request: NextRequest) {
   console.log('Top charts request:', { category, country, platform, type })
   
   try {
-    // For now, use iTunes RSS feeds as they're reliable and free
-    // AppTweak integration can be added when API documentation is clearer
+    // First try AppTweak API
+    if (process.env.APPTWEAK_API_KEY) {
+      try {
+        const apps = await appTweakClient.getTopApps(
+          category,
+          platform as 'ios' | 'android',
+          country,
+          type as 'free' | 'paid' | 'grossing'
+        )
+        
+        if (apps.length > 0) {
+          console.log(`AppTweak returned ${apps.length} apps`)
+          return NextResponse.json({
+            apps: apps.map((app, index) => ({
+              ...app,
+              rank: index + 1,
+              price: type === 'paid' ? '$0.99' : 'Free'
+            })),
+            category,
+            country,
+            platform,
+            type,
+            total: apps.length,
+            source: 'apptweak'
+          })
+        }
+      } catch (appTweakError) {
+        console.error('AppTweak error, falling back to RSS:', appTweakError)
+      }
+    }
+    
+    // Fallback to iTunes RSS feeds
+    console.log('Using iTunes RSS fallback')
     let url = ''
     
     if (platform === 'ios') {
       const genreParam = category !== '0' ? `/genre=${category}` : ''
       url = `https://rss.itunes.apple.com/api/v1/${country}/ios-apps/top-${type}/all/50${genreParam}/explicit.json`
     } else {
-      // Android RSS feeds have different structure
+      // Android RSS feeds
       url = `https://rss.itunes.apple.com/api/v1/${country}/apps/top-${type}/all/50/explicit.json`
     }
     
@@ -47,7 +78,8 @@ export async function GET(request: NextRequest) {
       country,
       platform,
       type,
-      total: apps.length
+      total: apps.length,
+      source: 'rss'
     })
   } catch (error) {
     console.error('Top charts error:', error)
