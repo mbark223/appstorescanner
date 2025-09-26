@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useSearchParams } from "next/navigation"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import { Search, Star, ExternalLink, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -11,18 +11,66 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { App } from "@/types/app"
 
+interface Suggestion {
+  name: string
+  category: string
+  icon: string
+}
+
 export default function SearchPage() {
   const searchParams = useSearchParams()
   const query = searchParams.get('q') || ''
   const [searchQuery, setSearchQuery] = useState(query)
   const [apps, setApps] = useState<App[]>([])
   const [loading, setLoading] = useState(false)
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const suggestionsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (query) {
       searchApps(query)
     }
   }, [query])
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (searchQuery.length < 2) {
+        setSuggestions([])
+        return
+      }
+
+      try {
+        const response = await fetch(`/api/apps/autocomplete?q=${encodeURIComponent(searchQuery)}`)
+        const data = await response.json()
+        setSuggestions(data.suggestions || [])
+      } catch (error) {
+        console.error('Error fetching suggestions:', error)
+        setSuggestions([])
+      }
+    }
+
+    const debounceTimer = setTimeout(fetchSuggestions, 150)
+    return () => clearTimeout(debounceTimer)
+  }, [searchQuery])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const searchApps = async (searchTerm: string) => {
     setLoading(true)
@@ -45,6 +93,34 @@ export default function SearchPage() {
     }
   }
 
+  const handleSuggestionClick = (suggestion: Suggestion) => {
+    setSearchQuery(suggestion.name)
+    setShowSuggestions(false)
+    window.location.href = `/search?q=${encodeURIComponent(suggestion.name)}`
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(prev => 
+        prev < suggestions.length - 1 ? prev + 1 : 0
+      )
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev => 
+        prev > 0 ? prev - 1 : suggestions.length - 1
+      )
+    } else if (e.key === 'Enter' && selectedIndex >= 0) {
+      e.preventDefault()
+      handleSuggestionClick(suggestions[selectedIndex])
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      setSelectedIndex(-1)
+    }
+  }
+
   const formatReviewCount = (count: number) => {
     if (count >= 1000000) {
       return `${(count / 1000000).toFixed(1)}M`
@@ -62,18 +138,79 @@ export default function SearchPage() {
             <Link href="/" className="text-2xl font-bold">
               App Store Scanner
             </Link>
-            <form onSubmit={handleSearch} className="flex-1 max-w-xl">
-              <div className="flex gap-2">
-                <Input
-                  type="text"
-                  placeholder="Search apps..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-10"
-                />
-                <Button type="submit" size="default">
-                  <Search className="h-4 w-4" />
-                </Button>
+            <form onSubmit={handleSearch} className="flex-1 max-w-xl relative">
+              <div className="relative">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      ref={inputRef}
+                      type="text"
+                      placeholder="Search apps..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value)
+                        setShowSuggestions(true)
+                        setSelectedIndex(-1)
+                      }}
+                      onFocus={() => {
+                        if (suggestions.length > 0) {
+                          setShowSuggestions(true)
+                        }
+                      }}
+                      onKeyDown={handleKeyDown}
+                      className="h-10 pr-10"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('')
+                          setSuggestions([])
+                          setShowSuggestions(false)
+                          inputRef.current?.focus()
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <Button type="submit" size="default">
+                    <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <AnimatePresence>
+                  {showSuggestions && suggestions.length > 0 && (
+                    <motion.div
+                      ref={suggestionsRef}
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-50 w-full mt-2 bg-background border rounded-lg shadow-lg overflow-hidden"
+                    >
+                      {suggestions.map((suggestion, index) => (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          className={`w-full px-4 py-2.5 flex items-center gap-3 hover:bg-muted transition-colors text-left ${
+                            index === selectedIndex ? 'bg-muted' : ''
+                          }`}
+                        >
+                          <span className="text-xl">{suggestion.icon}</span>
+                          <div className="flex-1 text-sm">
+                            <div className="font-medium">{suggestion.name}</div>
+                            <div className="text-xs text-muted-foreground">{suggestion.category}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </form>
           </div>
