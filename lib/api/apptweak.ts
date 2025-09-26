@@ -1,6 +1,6 @@
 import { App, Review } from '@/types/app'
 
-const APPTWEAK_API_BASE = 'https://api.apptweak.com'
+const APPTWEAK_API_BASE = 'https://public-api.apptweak.com/api/public/store'
 
 interface AppTweakApp {
   id: string
@@ -79,9 +79,7 @@ class AppTweakClient {
       headers: {
         'X-Apptweak-Key': this.apiKey,
         'Accept': 'application/json'
-      },
-      // Cache for 1 hour
-      next: { revalidate: 3600 }
+      }
     })
 
     if (!response.ok) {
@@ -212,45 +210,55 @@ class AppTweakClient {
     type: 'free' | 'paid' | 'grossing' = 'free'
   ): Promise<App[]> {
     try {
-      // AppTweak API endpoint for top charts
-      const endpoint = platform === 'ios'
-        ? `/ios/categories/${category}/top.json`
-        : `/android/categories/${category}/top.json`
-      
-      // Map our type names to AppTweak's list names
-      const listTypeMap = {
-        'free': 'free',
-        'paid': 'paid',
-        'grossing': 'revenue'
-      }
-      
-      const data = await this.request(endpoint, {
+      // First, get the top chart app IDs
+      const chartData = await this.request('/charts/top-results/current.json', {
         country: country,
-        language: 'en',
         device: platform === 'ios' ? 'iphone' : 'phone',
-        list: listTypeMap[type] || 'free',
-        limit: 50
+        categories: category,
+        types: type
       })
 
-      // Try different response structures
-      const apps = data.content || data.apps || data.applications || data.results || []
+      // Extract app IDs from the response
+      const appIds = chartData.result?.[category]?.[type]?.value || []
       
-      return apps.map((app: any) => this.convertToApp(app, platform))
-    } catch (error) {
-      console.error('AppTweak top apps error:', error)
-      
-      // Fallback to fetching top apps by search
-      console.log('Trying alternative approach...')
-      try {
-        const searchTerm = category === '6004' ? 'sports' : 
-                          category === '6014' ? 'games' : 
-                          category === '6000' ? 'business' : 'app'
-        
-        return await this.searchApps(searchTerm, platform, country, 50)
-      } catch (searchError) {
-        console.error('Search fallback also failed:', searchError)
+      if (appIds.length === 0) {
+        console.log('No apps found in top charts')
         return []
       }
+
+      console.log(`Found ${appIds.length} apps in top charts`)
+      
+      // Get metadata for the top 50 apps
+      const topAppIds = appIds.slice(0, 50)
+      const metadataData = await this.request('/apps/metadata.json', {
+        apps: topAppIds.join(','),
+        country: country
+      })
+
+      // Convert app metadata to our App format
+      const apps: App[] = []
+      for (const [index, appId] of topAppIds.entries()) {
+        const appData = metadataData.result?.[appId]?.metadata
+        if (appData) {
+          apps.push({
+            id: appId.toString(),
+            name: appData.title || '',
+            developer: appData.developer?.name || '',
+            icon: appData.icon || '',
+            rating: appData.rating?.average || 0,
+            ratingsCount: appData.rating?.count || 0,
+            category: appData.categories?.[0] ? this.getCategoryName(appData.categories[0].toString()) : 'Other',
+            platform: platform,
+            appStoreId: appId.toString(),
+            description: appData.description
+          })
+        }
+      }
+      
+      return apps
+    } catch (error) {
+      console.error('AppTweak top apps error:', error)
+      return []
     }
   }
 
@@ -275,6 +283,40 @@ class AppTweakClient {
       console.error('AppTweak keywords error:', error)
       return []
     }
+  }
+
+  // Get category name from ID
+  private getCategoryName(categoryId: string): string {
+    const categoryMap: Record<string, string> = {
+      '6000': 'Business',
+      '6001': 'Weather', 
+      '6002': 'Utilities',
+      '6003': 'Travel',
+      '6004': 'Sports',
+      '6005': 'Social Networking',
+      '6006': 'Reference',
+      '6007': 'Productivity',
+      '6008': 'Photo & Video',
+      '6009': 'News',
+      '6010': 'Navigation',
+      '6011': 'Music',
+      '6012': 'Lifestyle',
+      '6013': 'Health & Fitness',
+      '6014': 'Games',
+      '6015': 'Finance',
+      '6016': 'Entertainment',
+      '6017': 'Education',
+      '6018': 'Books',
+      '6020': 'Medical',
+      '6021': 'Magazines & Newspapers',
+      '6022': 'Catalogs',
+      '6023': 'Food & Drink',
+      '6024': 'Shopping',
+      '6025': 'Stickers',
+      '6026': 'Developer Tools',
+      '6027': 'Graphics & Design'
+    }
+    return categoryMap[categoryId] || 'Other'
   }
 
   // Convert AppTweak app format to our App format
