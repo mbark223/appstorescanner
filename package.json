@@ -35,7 +35,10 @@
     "zod": "^3.22.4",
     "zustand": "^4.4.7",
     "google-play-scraper": "^9.1.2",
-    "app-store-scraper": "^0.17.0"
+    "app-store-scraper": "^0.17.0",
+    "chart.js": "^4.4.1",
+    "react-chartjs-2": "^5.2.0",
+    "date-fns": "^3.0.6"
   },
   "devDependencies": {
     "@types/node": "^20",

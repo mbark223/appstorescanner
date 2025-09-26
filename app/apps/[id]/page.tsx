@@ -12,6 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { App } from "@/types/app"
+import { ReviewsTab } from "@/components/app/reviews-tab"
+import { InsightsTab } from "@/components/app/insights-tab"
+import { TrendsTab } from "@/components/app/trends-tab"
 
 export default function AppDetailPage() {
   const params = useParams()
@@ -22,24 +25,38 @@ export default function AppDetailPage() {
   useEffect(() => {
     const fetchAppDetails = async () => {
       try {
-        // First try to get app by searching
-        const response = await fetch(`/api/apps/search?q=${encodeURIComponent(appId)}`)
-        const data = await response.json()
+        // Determine platform based on appId format
+        const platform = appId.includes('.') ? 'android' : 'ios'
         
-        // Find app by ID or name
-        const foundApp = data.apps?.find((a: App) => 
-          a.id === appId || 
-          a.name.toLowerCase().includes(appId.toLowerCase()) ||
-          a.appStoreId === appId ||
-          a.playStoreId === appId
-        )
+        // Try to get app details from AppTweak API
+        const detailsResponse = await fetch(`/api/apps/${appId}?platform=${platform}`)
         
-        if (foundApp) {
+        if (detailsResponse.ok) {
+          const appData = await detailsResponse.json()
           setApp({
-            ...foundApp,
+            ...appData,
             lastAnalyzed: new Date(),
             sentimentScore: Math.floor(Math.random() * 20) + 75 // Mock sentiment score 75-95
           })
+        } else {
+          // Fallback to search API
+          const searchResponse = await fetch(`/api/apps/search?q=${encodeURIComponent(appId)}`)
+          const searchData = await searchResponse.json()
+          
+          const foundApp = searchData.apps?.find((a: App) => 
+            a.id === appId || 
+            a.name.toLowerCase().includes(appId.toLowerCase()) ||
+            a.appStoreId === appId ||
+            a.playStoreId === appId
+          )
+          
+          if (foundApp) {
+            setApp({
+              ...foundApp,
+              lastAnalyzed: new Date(),
+              sentimentScore: Math.floor(Math.random() * 20) + 75
+            })
+          }
         }
       } catch (error) {
         console.error('Error fetching app details:', error)
@@ -391,33 +408,24 @@ export default function AppDetailPage() {
             </TabsContent>
 
             <TabsContent value="reviews" className="space-y-4">
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-muted-foreground text-center py-8">
-                    Review analysis coming soon...
-                  </p>
-                </CardContent>
-              </Card>
+              <ReviewsTab 
+                appId={app.appStoreId || app.playStoreId || app.id} 
+                platform={app.platform || 'both'} 
+              />
             </TabsContent>
 
             <TabsContent value="insights" className="space-y-4">
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-muted-foreground text-center py-8">
-                    AI-powered insights coming soon...
-                  </p>
-                </CardContent>
-              </Card>
+              <InsightsTab 
+                appId={app.appStoreId || app.playStoreId || app.id} 
+                platform={app.platform || 'both'} 
+              />
             </TabsContent>
 
             <TabsContent value="trends" className="space-y-4">
-              <Card>
-                <CardContent className="p-6">
-                  <p className="text-muted-foreground text-center py-8">
-                    Trend analysis coming soon...
-                  </p>
-                </CardContent>
-              </Card>
+              <TrendsTab 
+                appId={app.appStoreId || app.playStoreId || app.id} 
+                platform={app.platform || 'both'} 
+              />
             </TabsContent>
           </Tabs>
         </motion.div>
