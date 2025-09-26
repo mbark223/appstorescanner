@@ -6,7 +6,7 @@ import { Search, Star, TrendingUp, MessageSquare, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TopSportsApps } from "@/components/home/top-sports-apps"
+import { TopCharts } from "@/components/home/top-charts"
 
 interface Suggestion {
   name: string
@@ -284,8 +284,8 @@ export default function LandingPage() {
         </motion.div>
       </div>
       
-      {/* Top Sports Apps Section */}
-      <TopSportsApps />
+      {/* Top Charts Section */}
+      <TopCharts initialCategory="Sports" />
     </div>
   )
 }
