@@ -174,7 +174,7 @@ export default function AppDetailPage() {
         </header>
         <div className="container mx-auto px-4 py-16 text-center">
           <h1 className="text-2xl font-bold mb-4">App Not Found</h1>
-          <p className="text-muted-foreground mb-8">We couldn't find the app you're looking for.</p>
+          <p className="text-muted-foreground mb-8">We couldn&apos;t find the app you&apos;re looking for.</p>
           <Link href="/">
             <Button>Go to Home</Button>
           </Link>
