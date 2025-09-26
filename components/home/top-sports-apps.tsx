@@ -27,12 +27,33 @@ export function TopSportsApps() {
       if (!response.ok) {
         setError(data.details || data.error || 'Failed to fetch apps')
         console.error('API Error:', data)
+        
+        // Fallback: Try to fetch from cached data
+        console.log('Trying fallback to cached sports apps...')
+        const fallbackResponse = await fetch('/api/apps/search?q=sports')
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json()
+          setApps(fallbackData.apps || [])
+          setError(null) // Clear error if fallback works
+        }
       } else {
         setApps(data.apps || [])
       }
     } catch (error) {
       console.error('Failed to fetch top apps:', error)
       setError('Network error: Unable to fetch apps')
+      
+      // Try fallback even on network error
+      try {
+        const fallbackResponse = await fetch('/api/apps/search?q=sports')
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json()
+          setApps(fallbackData.apps || [])
+          setError(null)
+        }
+      } catch (e) {
+        console.error('Fallback also failed:', e)
+      }
     } finally {
       setLoading(false)
     }

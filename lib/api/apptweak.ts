@@ -103,19 +103,35 @@ class AppTweakClient {
     limit: number = 50
   ): Promise<App[]> {
     try {
+      // AppTweak v3 API endpoints
       const endpoint = platform === 'ios' 
-        ? '/ios/searches.json' 
-        : '/android/searches.json'
+        ? `/ios/applications.json` 
+        : `/android/applications.json`
       
       const data = await this.request(endpoint, {
-        term: query,
+        q: query,
         country: country,
         language: 'en',
-        device: platform === 'ios' ? 'iphone' : 'phone',
-        num: limit
+        device: platform === 'ios' ? 'iphone' : 'phone'
       })
 
-      return (data.content || []).map((app: any) => this.convertToApp(app, platform))
+      // If no results, try alternative endpoint
+      if (!data.content || data.content.length === 0) {
+        console.log('Trying alternative search endpoint...')
+        const altEndpoint = platform === 'ios' 
+          ? '/ios/search.json' 
+          : '/android/search.json'
+        
+        const altData = await this.request(altEndpoint, {
+          term: query,
+          country: country,
+          num: limit
+        })
+        
+        return (altData.results || altData.content || []).map((app: any) => this.convertToApp(app, platform))
+      }
+
+      return (data.content || data.results || []).slice(0, limit).map((app: any) => this.convertToApp(app, platform))
     } catch (error) {
       console.error('AppTweak search error:', error)
       return []
@@ -250,19 +266,33 @@ class AppTweakClient {
 
   // Convert AppTweak app format to our App format
   private convertToApp(atApp: any, platform: 'ios' | 'android'): App {
+    console.log('Converting app:', atApp.name || atApp.title, atApp)
+    
+    // Handle different AppTweak response formats
+    const appId = atApp.id || atApp.app_id || atApp.slug || atApp.track_id
+    const name = atApp.name || atApp.title || atApp.track_name || ''
+    const icon = atApp.icon || atApp.icon_url || atApp.artwork_url || atApp.artwork_url_100 || atApp.artwork_url_512 || ''
+    const developer = atApp.developer || atApp.developer_name || atApp.artist_name || 
+                     (typeof atApp.developer === 'object' ? atApp.developer?.name : '') || ''
+    const rating = atApp.rating?.average || atApp.rating || atApp.average_user_rating || 
+                   atApp.average_user_rating_for_current_version || 0
+    const ratingsCount = atApp.rating?.count || atApp.ratings_count || atApp.user_rating_count || 
+                         atApp.user_rating_count_for_current_version || 0
+    
     return {
-      id: atApp.id || atApp.slug,
-      name: atApp.name || atApp.title,
-      developer: typeof atApp.developer === 'string' ? atApp.developer : atApp.developer?.name || '',
-      icon: atApp.icon || atApp.artwork_url || '',
-      rating: atApp.rating?.average || atApp.rating || 0,
-      ratingsCount: atApp.rating?.count || atApp.ratings_count || 0,
-      category: atApp.category?.name || atApp.category || 'Other',
+      id: String(appId),
+      name: name,
+      developer: developer,
+      icon: icon,
+      rating: Number(rating) || 0,
+      ratingsCount: Number(ratingsCount) || 0,
+      category: atApp.category?.name || atApp.category || atApp.primary_genre_name || 'Other',
       platform: platform,
-      appStoreId: platform === 'ios' ? (atApp.id || atApp.slug) : undefined,
-      playStoreId: platform === 'android' ? (atApp.id || atApp.slug) : undefined,
+      appStoreId: platform === 'ios' ? String(appId) : undefined,
+      playStoreId: platform === 'android' ? String(appId) : undefined,
       description: atApp.description || atApp.summary || '',
-      lastUpdated: atApp.last_update ? new Date(atApp.last_update) : undefined
+      lastUpdated: atApp.last_update || atApp.current_version_release_date ? 
+        new Date(atApp.last_update || atApp.current_version_release_date) : undefined
     }
   }
 
