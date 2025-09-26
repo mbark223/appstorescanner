@@ -776,7 +776,7 @@ export async function GET(request: NextRequest) {
         platform: 'both',
         appStoreId: '1495946115',
         playStoreId: 'com.underdogfantasy.underdog',
-        description: 'Best ball & pick'em contests'
+        description: 'Best ball & pick\'em contests'
       },
       {
         id: 'ufc',
