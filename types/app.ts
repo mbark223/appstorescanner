@@ -11,6 +11,8 @@ export interface App {
   playStoreId?: string
   description?: string
   lastUpdated?: Date
+  lastAnalyzed?: Date
+  sentimentScore?: number
 }
 
 export interface Review {
