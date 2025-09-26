@@ -13,6 +13,7 @@ import { motion } from 'framer-motion'
 export function TopSportsApps() {
   const [apps, setApps] = useState<App[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchTopApps()
@@ -22,9 +23,16 @@ export function TopSportsApps() {
     try {
       const response = await fetch('/api/apps/top-charts?category=6004&type=free')
       const data = await response.json()
-      setApps(data.apps || [])
+      
+      if (!response.ok) {
+        setError(data.details || data.error || 'Failed to fetch apps')
+        console.error('API Error:', data)
+      } else {
+        setApps(data.apps || [])
+      }
     } catch (error) {
       console.error('Failed to fetch top apps:', error)
+      setError('Network error: Unable to fetch apps')
     } finally {
       setLoading(false)
     }
@@ -133,6 +141,9 @@ export function TopSportsApps() {
         {apps.length === 0 && !loading && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">No apps found. Try refreshing the page.</p>
+            {error && (
+              <p className="text-sm text-red-500 mt-2">{error}</p>
+            )}
           </div>
         )}
       </div>

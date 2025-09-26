@@ -73,6 +73,8 @@ class AppTweakClient {
       }
     })
 
+    console.log('AppTweak API Request:', url.toString())
+
     const response = await fetch(url.toString(), {
       headers: {
         'X-Apptweak-Key': this.apiKey,
@@ -84,10 +86,13 @@ class AppTweakClient {
 
     if (!response.ok) {
       const error = await response.text()
+      console.error('AppTweak API Error:', response.status, error)
       throw new Error(`AppTweak API error (${response.status}): ${error}`)
     }
 
-    return response.json()
+    const data = await response.json()
+    console.log('AppTweak API Response:', data)
+    return data
   }
 
   // Search for apps
@@ -191,18 +196,29 @@ class AppTweakClient {
     type: 'free' | 'paid' | 'grossing' = 'free'
   ): Promise<App[]> {
     try {
-      const endpoint = platform === 'ios'
-        ? `/ios/rankings/top-charts.json`
-        : `/android/rankings/top-charts.json`
+      // For now, fallback to searching for popular sports apps
+      // AppTweak rankings endpoint might require different parameters
+      const sportsApps = [
+        'FanDuel', 'DraftKings', 'ESPN', 'theScore', 'Caesars Sportsbook',
+        'BetMGM', 'Underdog Fantasy', 'Betr', 'Sleeper', 'Yahoo Fantasy',
+        'CBS Sports', 'The Athletic', 'Bleacher Report', 'NBA', 'NFL',
+        'MLB', 'NHL', 'UFC', 'PGA TOUR', 'NASCAR'
+      ]
       
-      const data = await this.request(endpoint, {
-        country: country,
-        category: category,
-        list_type: type,
-        device: platform === 'ios' ? 'iphone' : 'phone'
-      })
-
-      return (data.content || []).map((app: any) => this.convertToApp(app, platform))
+      // Search for each app
+      const allApps: App[] = []
+      for (const appName of sportsApps) {
+        try {
+          const results = await this.searchApps(appName, platform, country, 5)
+          if (results.length > 0) {
+            allApps.push(results[0]) // Take the first result
+          }
+        } catch (e) {
+          console.log(`Failed to search for ${appName}`)
+        }
+      }
+      
+      return allApps
     } catch (error) {
       console.error('AppTweak top apps error:', error)
       return []
