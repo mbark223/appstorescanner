@@ -1,5 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { appTweakClient } from '@/lib/api/apptweak'
+import { App } from '@/types/app'
+
+// Sample data for when APIs fail
+function getSampleApps(type: string, platform: string, category: string): any[] {
+  const sampleSportsApps = [
+    {
+      id: 'sample-1',
+      name: 'ESPN: Live Sports & Scores',
+      developer: 'ESPN',
+      icon: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/e0/8f/00/e08f0051-6e76-6d4f-4b56-3f5c5f5c5f5c/AppIcon-1x_U007emarketing-0-7-0-85-220.png/512x512bb.jpg',
+      rating: 4.7,
+      ratingsCount: 523000,
+      category: 'Sports',
+      platform: platform as 'ios' | 'android',
+      appStoreId: 'sample-1',
+      price: type === 'paid' ? '$0.99' : 'Free',
+      rank: 1
+    },
+    {
+      id: 'sample-2', 
+      name: 'The Athletic: Sports News',
+      developer: 'The Athletic Media Company',
+      icon: 'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/43/c4/c4/43c4c4dd-e33d-104e-ac1c-a6d7275aa773/AppIcon-0-0-1x_U007emarketing-0-11-0-85-220.png/512x512bb.jpg',
+      rating: 4.8,
+      ratingsCount: 42000,
+      category: 'Sports',
+      platform: platform as 'ios' | 'android',
+      appStoreId: 'sample-2',
+      price: type === 'paid' ? '$1.99' : 'Free',
+      rank: 2
+    },
+    {
+      id: 'sample-3',
+      name: 'Yahoo Sports',
+      developer: 'Yahoo',
+      icon: 'https://is1-ssl.mzstatic.com/image/thumb/Purple221/v4/30/7f/00/307f0051-6e76-6d4f-4b56-3f5c5f5c5f5c/AppIcon-1x_U007emarketing-0-7-0-85-220.png/512x512bb.jpg',
+      rating: 4.5,
+      ratingsCount: 89000,
+      category: 'Sports',
+      platform: platform as 'ios' | 'android',
+      appStoreId: 'sample-3',
+      price: type === 'paid' ? '$2.99' : 'Free',
+      rank: 3
+    }
+  ]
+  
+  return sampleSportsApps
+}
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -63,6 +111,18 @@ export async function GET(request: NextRequest) {
     }
     
     const response = await fetch(url)
+    
+    if (!response.ok) {
+      console.error('RSS feed error:', response.status, response.statusText)
+      throw new Error(`RSS feed returned ${response.status}`)
+    }
+    
+    const contentType = response.headers.get('content-type')
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('RSS feed returned non-JSON content:', contentType)
+      throw new Error('RSS feed returned non-JSON content')
+    }
+    
     const data = await response.json()
     
     // Convert RSS format to our App format
@@ -92,17 +152,19 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Top charts critical error:', error)
     
-    // Return empty but valid response to prevent frontend errors
+    // Return sample data when both APIs fail
+    const sampleApps = getSampleApps(type, platform, category)
+    
     return NextResponse.json({
-      apps: [],
+      apps: sampleApps,
       category,
       country,
       platform,
       type,
-      total: 0,
-      source: 'error',
+      total: sampleApps.length,
+      source: 'sample',
       error: {
-        message: 'Failed to fetch top apps',
+        message: 'Using sample data due to API issues',
         details: error instanceof Error ? error.message : 'Unknown error'
       }
     })

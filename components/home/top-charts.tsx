@@ -125,7 +125,14 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
       })
       
       // Log source for debugging
-      console.log('Data source:', freeData.source || 'unknown')
+      const dataSource = freeData?.source || grossingData?.source || paidData?.source || 'unknown'
+      console.log('Data source:', dataSource)
+      
+      // If we got data from any source, clear the error
+      if ((freeData?.apps?.length > 0 || grossingData?.apps?.length > 0 || paidData?.apps?.length > 0) && 
+          (dataSource === 'rss' || dataSource === 'apptweak')) {
+        setError(null)
+      }
     } catch (error) {
       console.error('Failed to fetch top apps:', error)
       setError('Network error. Please check your connection.')
