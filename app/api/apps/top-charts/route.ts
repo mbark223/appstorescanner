@@ -42,9 +42,11 @@ export async function GET(request: NextRequest) {
       } catch (appTweakError) {
         console.error('AppTweak error details:', {
           error: appTweakError instanceof Error ? appTweakError.message : appTweakError,
-          stack: appTweakError instanceof Error ? appTweakError.stack : undefined
+          stack: appTweakError instanceof Error ? appTweakError.stack : undefined,
+          type: appTweakError instanceof Error ? appTweakError.constructor.name : typeof appTweakError
         })
         console.log('Falling back to RSS feeds...')
+        // Don't throw, continue to RSS fallback
       }
     }
     

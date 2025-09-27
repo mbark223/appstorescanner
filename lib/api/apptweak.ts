@@ -377,22 +377,10 @@ class AppTweakClient {
 }
 
 // Create and export client instance
-// Create a getter function for the client to ensure env vars are loaded
-function getAppTweakClient() {
-  if (!process.env.APPTWEAK_API_KEY) {
-    console.warn('APPTWEAK_API_KEY not found in environment variables')
-    throw new Error('AppTweak API key is not configured')
-  }
-  return new AppTweakClient(process.env.APPTWEAK_API_KEY)
-}
-
-// Export a proxy that creates the client on first use
-export const appTweakClient = new Proxy({} as AppTweakClient, {
-  get(target, prop, receiver) {
-    const client = getAppTweakClient()
-    return Reflect.get(client, prop, receiver)
-  }
-})
+// Export the client directly - Vercel handles env vars differently
+export const appTweakClient = new AppTweakClient(
+  process.env.APPTWEAK_API_KEY || ''
+)
 
 // Export convenience functions
 export async function searchAppsWithAppTweak(

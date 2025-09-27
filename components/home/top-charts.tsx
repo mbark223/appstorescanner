@@ -111,7 +111,11 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
           paid: paidRes.status
         })
         console.error('API responses:', { freeData, grossingData, paidData })
-        setError('Failed to fetch app rankings. Using cached data.')
+        
+        // Don't set error if we have data (even if it's from RSS)
+        if (freeData.apps?.length === 0 && grossingData.apps?.length === 0 && paidData.apps?.length === 0) {
+          setError('Failed to fetch app rankings.')
+        }
       }
       
       setApps({
