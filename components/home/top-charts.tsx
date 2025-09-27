@@ -86,16 +86,32 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
         fetch(`/api/apps/top-charts?category=${categoryId}&country=${country}&platform=${platform}&type=paid`)
       ])
       
-      const [freeData, grossingData, paidData] = await Promise.all([
-        freeRes.json(),
-        grossingRes.json(),
-        paidRes.json()
-      ])
+      // Parse responses carefully
+      let freeData, grossingData, paidData
+      
+      try {
+        [freeData, grossingData, paidData] = await Promise.all([
+          freeRes.ok ? freeRes.json() : { apps: [], error: true, source: 'error' },
+          grossingRes.ok ? grossingRes.json() : { apps: [], error: true, source: 'error' },
+          paidRes.ok ? paidRes.json() : { apps: [], error: true, source: 'error' }
+        ])
+      } catch (parseError) {
+        console.error('Failed to parse API responses:', parseError)
+        freeData = { apps: [], error: true, source: 'error' }
+        grossingData = { apps: [], error: true, source: 'error' }
+        paidData = { apps: [], error: true, source: 'error' }
+      }
       
       // Check for errors
-      if (!freeRes.ok || !grossingRes.ok || !paidRes.ok) {
+      if (!freeRes.ok || !grossingRes.ok || !paidRes.ok || 
+          freeData.error || grossingData.error || paidData.error) {
+        console.error('API error - Status:', {
+          free: freeRes.status,
+          grossing: grossingRes.status,
+          paid: paidRes.status
+        })
         console.error('API responses:', { freeData, grossingData, paidData })
-        setError('Failed to fetch app rankings. Please try again.')
+        setError('Failed to fetch app rankings. Using cached data.')
       }
       
       setApps({

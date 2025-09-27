@@ -88,10 +88,21 @@ export async function GET(request: NextRequest) {
       source: 'rss'
     })
   } catch (error) {
-    console.error('Top charts error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to fetch top apps', 
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    console.error('Top charts critical error:', error)
+    
+    // Return empty but valid response to prevent frontend errors
+    return NextResponse.json({
+      apps: [],
+      category,
+      country,
+      platform,
+      type,
+      total: 0,
+      source: 'error',
+      error: {
+        message: 'Failed to fetch top apps',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }
+    })
   }
 }
