@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get('type') || 'free'
   
   console.log('Top charts request:', { category, country, platform, type })
+  console.log('AppTweak API key present:', !!process.env.APPTWEAK_API_KEY)
+  console.log('API key length:', process.env.APPTWEAK_API_KEY?.length)
   
   try {
     // First try AppTweak API
@@ -38,7 +40,11 @@ export async function GET(request: NextRequest) {
           })
         }
       } catch (appTweakError) {
-        console.error('AppTweak error, falling back to RSS:', appTweakError)
+        console.error('AppTweak error details:', {
+          error: appTweakError instanceof Error ? appTweakError.message : appTweakError,
+          stack: appTweakError instanceof Error ? appTweakError.stack : undefined
+        })
+        console.log('Falling back to RSS feeds...')
       }
     }
     
