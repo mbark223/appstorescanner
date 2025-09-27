@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Star, User, Calendar, MessageSquare, ThumbsUp, Reply } from 'lucide-react'
+import { Star, User, Calendar, MessageSquare, ThumbsUp, Reply, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react'
 import { Review } from '@/types/app'
 import { format } from 'date-fns'
+import { analyzeSentimentWithRating, calculateSentimentSummary, SentimentType } from '@/lib/api/sentiment'
 
 interface ReviewsTabProps {
   appId: string
@@ -21,10 +22,28 @@ export function ReviewsTab({ appId, platform }: ReviewsTabProps) {
   const [sort, setSort] = useState<'recent' | 'helpful' | 'critical'>('recent')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
+  const [topReviews, setTopReviews] = useState<Review[]>([])
+  const [bottomReviews, setBottomReviews] = useState<Review[]>([])
+  const [sentimentSummary, setSentimentSummary] = useState<any>(null)
 
   useEffect(() => {
     fetchReviews()
   }, [appId, platform, sort, page])
+
+  useEffect(() => {
+    if (reviews.length > 0) {
+      // Calculate top 5 and bottom 5 reviews
+      const sortedByRating = [...reviews].sort((a, b) => b.rating - a.rating)
+      setTopReviews(sortedByRating.slice(0, 5))
+      setBottomReviews(sortedByRating.slice(-5).reverse())
+      
+      // Calculate sentiment summary
+      const sentiments = reviews.map(review => 
+        analyzeSentimentWithRating(review.content, review.rating)
+      )
+      setSentimentSummary(calculateSentimentSummary(sentiments))
+    }
+  }, [reviews])
 
   const fetchReviews = async () => {
     setLoading(true)
@@ -53,6 +72,17 @@ export function ReviewsTab({ appId, platform }: ReviewsTabProps) {
     if (rating >= 3) return 'text-yellow-600 bg-yellow-50'
     return 'text-red-600 bg-red-50'
   }
+  
+  const getSentimentColor = (sentiment: SentimentType) => {
+    switch (sentiment) {
+      case 'positive':
+        return 'text-green-600 bg-green-50'
+      case 'negative':
+        return 'text-red-600 bg-red-50'
+      default:
+        return 'text-gray-600 bg-gray-50'
+    }
+  }
 
   const renderStars = (rating: number) => {
     return Array.from({ length: 5 }).map((_, i) => (
@@ -65,13 +95,145 @@ export function ReviewsTab({ appId, platform }: ReviewsTabProps) {
     ))
   }
 
+  const renderReviewCard = (review: Review, showSentiment: boolean = true) => {
+    const sentiment = analyzeSentimentWithRating(review.content, review.rating)
+    
+    return (
+      <Card key={review.id} className="p-4 hover:shadow-md transition-shadow">
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="flex">{renderStars(review.rating)}</div>
+                <Badge className={getRatingColor(review.rating)} variant="secondary">
+                  {review.rating}/5
+                </Badge>
+                {showSentiment && (
+                  <Badge className={getSentimentColor(sentiment.type)} variant="outline">
+                    {sentiment.type}
+                  </Badge>
+                )}
+              </div>
+              {review.title && (
+                <h4 className="font-semibold text-sm">{review.title}</h4>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground text-right">
+              {review.version && <div>v{review.version}</div>}
+              <div>{format(new Date(review.date), 'MMM d, yyyy')}</div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {review.content}
+          </p>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <User className="h-3 w-3" />
+                {review.author}
+              </div>
+              {review.helpful > 0 && (
+                <div className="flex items-center gap-1">
+                  <ThumbsUp className="h-3 w-3" />
+                  {review.helpful} helpful
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Developer Response */}
+          {review.response && (
+            <div className="mt-3 pl-4 border-l-2 border-muted">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                <Reply className="h-3 w-3" />
+                Developer Response
+                {review.responseDate && (
+                  <span>• {format(new Date(review.responseDate), 'MMM d, yyyy')}</span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">{review.response}</p>
+            </div>
+          )}
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <div className="space-y-4">
-      {/* Filters */}
+      {/* Sentiment Analysis Summary */}
+      {sentimentSummary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Sentiment Analysis
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-green-600">{sentimentSummary.distribution.positive}%</div>
+                <div className="text-sm text-muted-foreground">Positive</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-gray-600">{sentimentSummary.distribution.neutral}%</div>
+                <div className="text-sm text-muted-foreground">Neutral</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-red-600">{sentimentSummary.distribution.negative}%</div>
+                <div className="text-sm text-muted-foreground">Negative</div>
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <Badge className={getSentimentColor(sentimentSummary.overall)} variant="secondary">
+                Overall: {sentimentSummary.overall}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Top 5 Reviews */}
+      {topReviews.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-green-600" />
+              Top 5 Reviews
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {topReviews.map(review => renderReviewCard(review, false))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Bottom 5 Reviews */}
+      {bottomReviews.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingDown className="h-5 w-5 text-red-600" />
+              Bottom 5 Reviews
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {bottomReviews.map(review => renderReviewCard(review, false))}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All Reviews */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>User Reviews</CardTitle>
+            <CardTitle>All Reviews</CardTitle>
             <Select value={sort} onValueChange={(value: any) => {
               setSort(value)
               setPage(1)
@@ -105,65 +267,7 @@ export function ReviewsTab({ appId, platform }: ReviewsTabProps) {
             </p>
           ) : (
             <>
-              {reviews.map((review) => (
-                <Card key={review.id} className="p-4 hover:shadow-md transition-shadow">
-                  <div className="space-y-3">
-                    {/* Header */}
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <div className="flex">{renderStars(review.rating)}</div>
-                          <Badge className={getRatingColor(review.rating)} variant="secondary">
-                            {review.rating}/5
-                          </Badge>
-                        </div>
-                        {review.title && (
-                          <h4 className="font-semibold text-sm">{review.title}</h4>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground text-right">
-                        {review.version && <div>v{review.version}</div>}
-                        <div>{format(new Date(review.date), 'MMM d, yyyy')}</div>
-                      </div>
-                    </div>
-
-                    {/* Content */}
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {review.content}
-                    </p>
-
-                    {/* Footer */}
-                    <div className="flex items-center justify-between pt-2">
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-1">
-                          <User className="h-3 w-3" />
-                          {review.author}
-                        </div>
-                        {review.helpful > 0 && (
-                          <div className="flex items-center gap-1">
-                            <ThumbsUp className="h-3 w-3" />
-                            {review.helpful} helpful
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Developer Response */}
-                    {review.response && (
-                      <div className="mt-3 pl-4 border-l-2 border-muted">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                          <Reply className="h-3 w-3" />
-                          Developer Response
-                          {review.responseDate && (
-                            <span>• {format(new Date(review.responseDate), 'MMM d, yyyy')}</span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{review.response}</p>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              ))}
+              {reviews.map(review => renderReviewCard(review))}
 
               {/* Load More */}
               {hasMore && (

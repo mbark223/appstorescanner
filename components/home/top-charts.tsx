@@ -142,7 +142,7 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
   }
 
   const getAppIcon = (app: App) => {
-    return app.icon || '/app-placeholder.png'
+    return app.icon || '/app-placeholder.svg'
   }
 
   const renderAppList = (appList: App[]) => {
@@ -197,7 +197,7 @@ export function TopCharts({ initialCategory = 'All' }: TopChartsProps) {
                         className="rounded-xl object-cover"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement
-                          target.src = '/app-placeholder.png'
+                          target.src = '/app-placeholder.svg'
                         }}
                       />
                     </div>
